@@ -319,18 +319,125 @@ function Round3Screen({ model, choice, onContinue }) {
   );
 }
 
-function RevealScreen({ onContinue }) {
+const BICYCLE_PARAMS = ["Mass", "Wheelbase", "CoG height", "Cornering stiffness (F)", "Cornering stiffness (R)", "Yaw inertia"];
+const MULTIBODY_PARAMS = ["Sprung mass","Unsprung mass (FL)","Unsprung mass (FR)","Unsprung mass (RL)","Unsprung mass (RR)","CoG x","CoG y","CoG z","Roll inertia","Pitch inertia","Yaw inertia","Front spring rate","Rear spring rate","Front damper (bump)","Front damper (rebound)","Rear damper (bump)","Rear damper (rebound)","Front ARB stiffness","Rear ARB stiffness","Front ride height","Rear ride height","Front camber","Rear camber","Front toe","Rear toe","Caster angle","KPI","Ackermann %","Tire Cx (F)","Tire Cx (R)","Tire Cy (F)","Tire Cy (R)","Tire thermal coeff","Tire pressure sens","Aero CoP","CdA","ClA front","ClA rear"];
+
+function ParameterGrid({ params, color, flashErrors = false }) {
+  const [flashIdx, setFlashIdx] = useState(new Set());
+  useEffect(() => {
+    if (!flashErrors) return;
+    const interval = setInterval(() => {
+      const count = 2 + Math.floor(Math.random() * 3);
+      const indices = new Set();
+      while (indices.size < count) indices.add(Math.floor(Math.random() * params.length));
+      setFlashIdx(indices);
+      setTimeout(() => setFlashIdx(new Set()), 400);
+    }, 1200);
+    return () => clearInterval(interval);
+  }, [flashErrors, params.length]);
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+      {params.map((p, i) => {
+        const isFlashing = flashIdx.has(i);
+        return (
+          <div key={i} style={{
+            fontFamily: MONO, fontSize: 8, padding: "3px 6px", borderRadius: 3,
+            background: isFlashing ? "#E24B4A30" : `${color}10`,
+            border: `1px solid ${isFlashing ? "#E24B4A" : color + "30"}`,
+            color: isFlashing ? "#E24B4A" : `${color}aa`,
+            transition: "all 0.2s ease",
+            letterSpacing: "0.02em",
+          }}>{p}</div>
+        );
+      })}
+    </div>
+  );
+}
+
+function WhatIfComparison({ model, choice }) {
+  const allOutcomes = {
+    bicycle: { trust: { pos: "P5", pts: 10, color: "#5DCAA5", summary: "Off by 0.4s but knew why. Conservative setup, consistent race." }, question: { pos: "P5", pts: 10, color: "#5DCAA5", summary: "Manual correction worked. Driver confident, solid points." } },
+    multibody: { trust: { pos: "P12", pts: 0, color: "#E24B4A", summary: "Off by 0.9s, could not diagnose. Tires failed by lap 15." }, question: { pos: "P8", pts: 4, color: "#EF9F27", summary: "Spent time debugging instead of developing. Compromise setup." } },
+  };
+
+  const yourResult = allOutcomes[model][choice];
+  const otherModel = model === "bicycle" ? "multibody" : "bicycle";
+  const otherTrust = allOutcomes[otherModel]["trust"];
+  const otherQuestion = allOutcomes[otherModel]["question"];
+
+  return (
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>What if you picked the other model?</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <div style={{ border: `2px solid ${yourResult.color}60`, borderRadius: 8, padding: 12, background: `${yourResult.color}08` }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: "#6b6b6b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Your path</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <F1CarSide color={yourResult.color} width={60} number="7" />
+            <div><div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 700, color: yourResult.color }}>{yourResult.pos}</div><div style={{ fontFamily: MONO, fontSize: 10, color: yourResult.pts > 0 ? yourResult.color : "#6b6b6b" }}>{yourResult.pts} pts</div></div>
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 11, color: "#8a8a8a", lineHeight: 1.5 }}>{yourResult.summary}</div>
+        </div>
+        <div style={{ border: "1px solid #2a2a2a", borderRadius: 8, padding: 12 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: "#6b6b6b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{otherModel === "bicycle" ? "Bicycle" : "Multibody"} (trusted)</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <F1CarSide color={otherTrust.color} width={60} number="7" />
+            <div><div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 700, color: otherTrust.color }}>{otherTrust.pos}</div><div style={{ fontFamily: MONO, fontSize: 10, color: otherTrust.pts > 0 ? otherTrust.color : "#6b6b6b" }}>{otherTrust.pts} pts</div></div>
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 11, color: "#6b6b6b", lineHeight: 1.5 }}>{otherTrust.summary}</div>
+        </div>
+        <div style={{ border: "1px solid #2a2a2a", borderRadius: 8, padding: 12 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: "#6b6b6b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{otherModel === "bicycle" ? "Bicycle" : "Multibody"} (questioned)</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <F1CarSide color={otherQuestion.color} width={60} number="7" />
+            <div><div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 700, color: otherQuestion.color }}>{otherQuestion.pos}</div><div style={{ fontFamily: MONO, fontSize: 10, color: otherQuestion.pts > 0 ? otherQuestion.color : "#6b6b6b" }}>{otherQuestion.pts} pts</div></div>
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 11, color: "#6b6b6b", lineHeight: 1.5 }}>{otherQuestion.summary}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RevealScreen({ model, choice, onContinue }) {
   return (
     <ScreenWrapper>
       <FadeIn><div style={{ fontFamily: MONO, fontSize: 10, color: "#AFA9EC", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>The reveal</div></FadeIn>
       <FadeIn delay={200}><h2 style={{ fontFamily: SANS, fontSize: 30, fontWeight: 600, color: "#e8e8e8", margin: "0 0 16px", lineHeight: 1.2 }}>This has a name.</h2></FadeIn>
-      <FadeIn delay={400}><div style={{ display: "flex", justifyContent: "center", gap: 32, marginBottom: 20 }}>{[{c:"#5DCAA5",p:"P5"},{c:"#E24B4A",p:"P12"},{c:"#EF9F27",p:"P8"}].map((x,i)=>(<div key={i} style={{ textAlign: "center" }}><F1CarTop color={x.c} width={70}/><div style={{ fontFamily: MONO, fontSize: 11, color: x.c, marginTop: 4 }}>{x.p}</div></div>))}</div></FadeIn>
-      <FadeIn delay={600}><p style={{ fontFamily: SANS, fontSize: 15, color: "#8a8a8a", lineHeight: 1.7, margin: "0 0 10px" }}>The bicycle model was less accurate on paper. But the engineer who used it understood its boundaries, corrected for them, and made better decisions.</p><p style={{ fontFamily: SANS, fontSize: 15, color: "#8a8a8a", lineHeight: 1.7, margin: "0 0 20px" }}>The multibody model had more physics, more parameters. But that sophistication masked where it was wrong.</p></FadeIn>
-      <FadeIn delay={800}><div style={{ borderLeft: "3px solid #AFA9EC", paddingLeft: 16, marginBottom: 20 }}><div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 600, color: "#AFA9EC", marginBottom: 6 }}>Automation bias</div><p style={{ fontFamily: SANS, fontSize: 14, color: "#b0b0b0", margin: 0, lineHeight: 1.7 }}>The tendency to favor the output of an automated system over your own judgment, especially when the system appears sophisticated and confident.</p><p style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", margin: "10px 0 0", lineHeight: 1.6 }}>A systematic review of 74 studies found the primary driver is miscalibrated trust. (Lyell and Coiera, 2017)</p></div></FadeIn>
-      <FadeIn delay={1000}><div style={{ borderLeft: "3px solid #E24B4A", paddingLeft: 16, marginBottom: 24 }}><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 600, color: "#E24B4A", marginBottom: 6 }}>This is not hypothetical</div><p style={{ fontFamily: SANS, fontSize: 14, color: "#b0b0b0", fontStyle: "italic", margin: "0 0 10px", lineHeight: 1.7 }}>"You have simplified models back here in the factory and those simplified models are powerful for steering you one way or the other. But all of them have their shortcomings and all of them have their correlation issues."</p><p style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", margin: 0 }}>James Allison, Mercedes Technical Director, on the team's poor start to 2024.</p></div></FadeIn>
-      <Divider/>
-      <FadeIn delay={1200}><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}><div style={{ border: "1px solid #5DCAA530", borderRadius: 8, padding: 16, textAlign: "center" }}><div style={{ fontFamily: MONO, fontSize: 40, fontWeight: 700, color: "#5DCAA5" }}>6</div><div style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Bicycle params</div><div style={{ fontFamily: SANS, fontSize: 12, color: "#5DCAA5", marginTop: 6 }}>Each one traceable</div></div><div style={{ border: "1px solid #AFA9EC30", borderRadius: 8, padding: 16, textAlign: "center" }}><div style={{ fontFamily: MONO, fontSize: 40, fontWeight: 700, color: "#AFA9EC" }}>35+</div><div style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Multibody params</div><div style={{ fontFamily: SANS, fontSize: 12, color: "#AFA9EC", marginTop: 6 }}>Error hides anywhere</div></div></div></FadeIn>
-      <FadeIn delay={1400}><div style={{ textAlign: "center" }}><ActionButton onClick={onContinue}>This is not just a motorsport problem</ActionButton></div></FadeIn>
+
+      <FadeIn delay={400}><WhatIfComparison model={model} choice={choice} /></FadeIn>
+
+      <FadeIn delay={700}><Divider/></FadeIn>
+
+      <FadeIn delay={800}><p style={{ fontFamily: SANS, fontSize: 15, color: "#8a8a8a", lineHeight: 1.7, margin: "0 0 10px" }}>The bicycle model was less accurate on paper. But the engineer who used it understood its boundaries, corrected for them, and made better decisions.</p><p style={{ fontFamily: SANS, fontSize: 15, color: "#8a8a8a", lineHeight: 1.7, margin: "0 0 20px" }}>The multibody model had more physics, more parameters. But that sophistication masked where it was wrong.</p></FadeIn>
+      <FadeIn delay={1000}><div style={{ borderLeft: "3px solid #AFA9EC", paddingLeft: 16, marginBottom: 20 }}><div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 600, color: "#AFA9EC", marginBottom: 6 }}>Automation bias</div><p style={{ fontFamily: SANS, fontSize: 14, color: "#b0b0b0", margin: 0, lineHeight: 1.7 }}>The tendency to favor the output of an automated system over your own judgment, especially when the system appears sophisticated and confident.</p><p style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", margin: "10px 0 0", lineHeight: 1.6 }}>A systematic review of 74 studies found the primary driver is miscalibrated trust. (Lyell and Coiera, 2017)</p></div></FadeIn>
+      <FadeIn delay={1200}><div style={{ borderLeft: "3px solid #E24B4A", paddingLeft: 16, marginBottom: 24 }}><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 600, color: "#E24B4A", marginBottom: 6 }}>This is not hypothetical</div><p style={{ fontFamily: SANS, fontSize: 14, color: "#b0b0b0", fontStyle: "italic", margin: "0 0 10px", lineHeight: 1.7 }}>"You have simplified models back here in the factory and those simplified models are powerful for steering you one way or the other. But all of them have their shortcomings and all of them have their correlation issues."</p><p style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", margin: 0 }}>James Allison, Mercedes Technical Director, on the team's poor start to 2024.</p></div></FadeIn>
+
+      <FadeIn delay={1400}><Divider/></FadeIn>
+
+      <FadeIn delay={1500}>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>What does "6 vs 35+" actually look like?</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+          <div style={{ border: "1px solid #5DCAA530", borderRadius: 8, padding: 16 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: "#5DCAA5" }}>6</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", textTransform: "uppercase" }}>Bicycle params</div>
+            </div>
+            <ParameterGrid params={BICYCLE_PARAMS} color="#5DCAA5" />
+            <div style={{ fontFamily: SANS, fontSize: 11, color: "#5DCAA5", marginTop: 10 }}>You can check every single one.</div>
+          </div>
+          <div style={{ border: "1px solid #AFA9EC30", borderRadius: 8, padding: 16 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: "#AFA9EC" }}>38</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: "#6b6b6b", textTransform: "uppercase" }}>Multibody params</div>
+            </div>
+            <ParameterGrid params={MULTIBODY_PARAMS} color="#AFA9EC" flashErrors />
+            <div style={{ fontFamily: SANS, fontSize: 11, color: "#E24B4A", marginTop: 10 }}>The error is hiding in one of these. Which one?</div>
+          </div>
+        </div>
+      </FadeIn>
+
+      <FadeIn delay={1800}><div style={{ textAlign: "center" }}><ActionButton onClick={onContinue}>This is not just a motorsport problem</ActionButton></div></FadeIn>
     </ScreenWrapper>
   );
 }
@@ -365,7 +472,7 @@ export default function App() {
       {screen === SCREENS.ROUND2_RESULT && <Round2ResultScreen model={model} choice={choice} onContinue={()=>goTo(SCREENS.FINISH_LINE)}/>}
       {screen === SCREENS.FINISH_LINE && <FinishLineScreen model={model} choice={choice} onDone={()=>goTo(SCREENS.ROUND3)}/>}
       {screen === SCREENS.ROUND3 && <Round3Screen model={model} choice={choice} onContinue={()=>goTo(SCREENS.REVEAL)}/>}
-      {screen === SCREENS.REVEAL && <RevealScreen onContinue={()=>goTo(SCREENS.CLOSING)}/>}
+      {screen === SCREENS.REVEAL && <RevealScreen model={model} choice={choice} onContinue={()=>goTo(SCREENS.CLOSING)}/>}
       {screen === SCREENS.CLOSING && <ClosingScreen onRestart={()=>{setModel(null);setChoice(null);goTo(SCREENS.INTRO);}}/>}
     </div>
   );
